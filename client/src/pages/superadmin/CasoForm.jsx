@@ -2,13 +2,15 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Box, TextField, Button, Typography, Grid, Card, CardContent,
   FormControl, InputLabel, Select, MenuItem, Alert, CircularProgress,
-  Autocomplete, Chip, Paper, Divider
+  Autocomplete, Chip, Paper, InputAdornment, ListSubheader
 } from "@mui/material";
-import { Gavel, LocationOn, Save, ArrowBack } from "@mui/icons-material";
+import {
+  Gavel, LocationOn, Save, ArrowBack, Search, AccountBalance
+} from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api";
 
-// Color por materia (mismo que en JuzgadosList)
+// Color por materia
 const getMateriaColor = (materia = "") => {
   const m = materia.toLowerCase();
   if (m.includes("penal")) return { bg: "#ffebee", color: "#c62828", label: "Penal" };
@@ -25,8 +27,6 @@ const getMateriaColor = (materia = "") => {
   return { bg: "#f5f5f5", color: "#616161", label: materia };
 };
 
-// Mapeo de materia del caso a materia de juzgados
-// Ajustar según las materias usadas en el sistema
 const MATERIAS_CASO = [
   "Penal",
   "Civil Comercial",
@@ -46,7 +46,6 @@ export default function CasoForm() {
   const { id } = useParams();
   const isEditing = Boolean(id);
 
-  // Estado del formulario
   const [form, setForm] = useState({
     nurej_cud: "",
     delito: "",
@@ -71,7 +70,6 @@ export default function CasoForm() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Cargar juzgados
   const loadJuzgados = async () => {
     try {
       setJuzgadosLoading(true);
@@ -84,7 +82,6 @@ export default function CasoForm() {
     }
   };
 
-  // Cargar caso existente si estamos editando
   const loadCaso = async () => {
     if (!id) return;
     try {
@@ -106,8 +103,6 @@ export default function CasoForm() {
         juzgado_nombre: caso.juzgado_nombre || "",
         juzgado_ubicacion: caso.juzgado_ubicacion || ""
       });
-
-      // Si el caso ya tiene un juzgado, preseleccionarlo cuando carguen los juzgados
       if (caso.juzgado_nombre) {
         setJuzgadoSeleccionado({
           nombre: caso.juzgado_nombre,
@@ -129,63 +124,48 @@ export default function CasoForm() {
     }
   }, [id]);
 
-  // Filtrar juzgados por la materia seleccionada en el caso
+  // Filtrar juzgados por la materia seleccionada
   const juzgadosFiltrados = useMemo(() => {
     if (!form.materia) return juzgados;
-
     const materiaLower = form.materia.toLowerCase();
-    
+
     return juzgados.filter(juzgado => {
-      const juzgadoMateria = (juzgado.materia || "").toLowerCase();
-      
-      // Mapeo flexible: buscar coincidencias parciales
+      const jm = (juzgado.materia || "").toLowerCase();
       if (materiaLower.includes("penal") && !materiaLower.includes("instrucción") && !materiaLower.includes("ejecución")) {
-        return juzgadoMateria.includes("penal") || juzgadoMateria.includes("sentencia penal");
+        return jm.includes("penal") || jm.includes("sentencia penal");
       }
       if (materiaLower.includes("civil") || materiaLower.includes("comercial")) {
-        return juzgadoMateria.includes("civil") || juzgadoMateria.includes("comercial");
+        return jm.includes("civil") || jm.includes("comercial");
       }
-      if (materiaLower.includes("familia")) {
-        return juzgadoMateria.includes("familia");
-      }
+      if (materiaLower.includes("familia")) return jm.includes("familia");
       if (materiaLower.includes("niñez") || materiaLower.includes("adolescencia")) {
-        return juzgadoMateria.includes("niñez") || juzgadoMateria.includes("adolescencia");
+        return jm.includes("niñez") || jm.includes("adolescencia");
       }
       if (materiaLower.includes("trabajo") || materiaLower.includes("seguridad social")) {
-        return juzgadoMateria.includes("trabajo") || juzgadoMateria.includes("seguridad");
+        return jm.includes("trabajo") || jm.includes("seguridad");
       }
-      if (materiaLower.includes("contravencional")) {
-        return juzgadoMateria.includes("contravencional");
-      }
-      if (materiaLower.includes("violencia")) {
-        return juzgadoMateria.includes("violencia");
-      }
+      if (materiaLower.includes("contravencional")) return jm.includes("contravencional");
+      if (materiaLower.includes("violencia")) return jm.includes("violencia");
       if (materiaLower.includes("anticorrupción") || materiaLower.includes("anticorrupcion")) {
-        return juzgadoMateria.includes("anticorrupción") || juzgadoMateria.includes("anticorrupcion");
+        return jm.includes("anticorrupción") || jm.includes("anticorrupcion");
       }
-      if (materiaLower.includes("sustancias")) {
-        return juzgadoMateria.includes("sustancias");
-      }
+      if (materiaLower.includes("sustancias")) return jm.includes("sustancias");
       if (materiaLower.includes("instrucción")) {
-        return juzgadoMateria.includes("instrucción") || juzgadoMateria.includes("instruccion");
+        return jm.includes("instrucción") || jm.includes("instruccion");
       }
       if (materiaLower.includes("ejecución")) {
-        return juzgadoMateria.includes("ejecución") || juzgadoMateria.includes("ejecucion");
+        return jm.includes("ejecución") || jm.includes("ejecucion");
       }
-      
-      // Fallback: coincidencia parcial directa
-      return juzgadoMateria.includes(materiaLower) || materiaLower.includes(juzgadoMateria);
+      return jm.includes(materiaLower) || materiaLower.includes(jm);
     });
   }, [juzgados, form.materia]);
 
   const handleChange = (field) => (e) => {
     const value = e.target.value;
     setForm(prev => ({ ...prev, [field]: value }));
-
-    // Si cambia la materia, limpiar juzgado seleccionado
     if (field === "materia") {
       setJuzgadoSeleccionado(null);
-      setForm(prev => ({ ...prev, juzgado_nombre: "", juzgado_ubicacion: "" }));
+      setForm(prev => ({ ...prev, [field]: value, juzgado_nombre: "", juzgado_ubicacion: "" }));
     }
   };
 
@@ -211,7 +191,6 @@ export default function CasoForm() {
     setLoading(true);
     setError(null);
     setSuccess(null);
-
     try {
       if (isEditing) {
         await api.put(`/casos/${id}`, form);
@@ -220,10 +199,7 @@ export default function CasoForm() {
         await api.post("/casos", form);
         setSuccess("Caso creado exitosamente");
       }
-
-      setTimeout(() => {
-        navigate(-1);
-      }, 1500);
+      setTimeout(() => navigate(-1), 1500);
     } catch (err) {
       console.error("Error al guardar caso:", err);
       setError(err.response?.data?.message || "Error al guardar el caso");
@@ -234,21 +210,26 @@ export default function CasoForm() {
 
   if (loadingCaso) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="60vh">
+      <Box display="flex" justifyContent="center" alignItems="center" height="60vh" flexDirection="column">
         <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Cargando datos del caso...</Typography>
+        <Typography sx={{ mt: 2 }}>Cargando datos del caso...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 900, mx: "auto", py: 3, px: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 2 }}>
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+      sx={{ maxWidth: 960, mx: "auto", py: 4, px: { xs: 2, sm: 3 } }}
+    >
+      {/* Header */}
+      <Box sx={{ display: "flex", alignItems: "center", mb: 4, gap: 2 }}>
         <Button
           variant="outlined"
           startIcon={<ArrowBack />}
           onClick={() => navigate(-1)}
-          sx={{ textTransform: 'none' }}
+          sx={{ textTransform: "none", minWidth: 100 }}
         >
           Volver
         </Button>
@@ -260,283 +241,332 @@ export default function CasoForm() {
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
-      <Grid container spacing={3}>
-        {/* Datos principales del caso */}
-        <Grid item xs={12}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                Datos del Caso
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="NUREJ/CUD"
-                    value={form.nurej_cud}
-                    onChange={handleChange("nurej_cud")}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Delito *"
-                    value={form.delito}
-                    onChange={handleChange("delito")}
-                    required
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Tipo de Caso *"
-                    value={form.tipo_caso}
-                    onChange={handleChange("tipo_caso")}
-                    required
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Estado</InputLabel>
-                    <Select
-                      value={form.estado}
-                      label="Estado"
-                      onChange={handleChange("estado")}
-                    >
-                      <MenuItem value="activo">Activo</MenuItem>
-                      <MenuItem value="en_proceso">En Proceso</MenuItem>
-                      <MenuItem value="cerrado">Cerrado</MenuItem>
-                      <MenuItem value="archivado">Archivado</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Asunto *"
-                    value={form.asunto}
-                    onChange={handleChange("asunto")}
-                    required
-                    multiline
-                    rows={2}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Fecha de Ingreso"
-                    type="date"
-                    value={form.fecha_ingreso}
-                    onChange={handleChange("fecha_ingreso")}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Fecha de Inicio"
-                    type="date"
-                    value={form.fecha_inicio}
-                    onChange={handleChange("fecha_inicio")}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
+      {/* ── Sección 1: Datos del Caso ────────────────────── */}
+      <Card sx={{ borderRadius: 2, boxShadow: 2, mb: 3 }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
+            Datos del Caso
+          </Typography>
 
-        {/* Sección de Materia y Juzgado */}
-        <Grid item xs={12}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                <Gavel sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Materia y Juzgado
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Selecciona la materia del caso para filtrar los juzgados disponibles.
-              </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="NUREJ / CUD"
+                value={form.nurej_cud}
+                onChange={handleChange("nurej_cud")}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Delito"
+                value={form.delito}
+                onChange={handleChange("delito")}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Tipo de Caso"
+                value={form.tipo_caso}
+                onChange={handleChange("tipo_caso")}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Estado</InputLabel>
+                <Select
+                  value={form.estado}
+                  label="Estado"
+                  onChange={handleChange("estado")}
+                >
+                  <MenuItem value="activo">Activo</MenuItem>
+                  <MenuItem value="en_proceso">En Proceso</MenuItem>
+                  <MenuItem value="cerrado">Cerrado</MenuItem>
+                  <MenuItem value="archivado">Archivado</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Asunto"
+                value={form.asunto}
+                onChange={handleChange("asunto")}
+                required
+                multiline
+                minRows={2}
+                maxRows={4}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Fecha de Ingreso"
+                type="date"
+                value={form.fecha_ingreso}
+                onChange={handleChange("fecha_ingreso")}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Fecha de Inicio"
+                type="date"
+                value={form.fecha_inicio}
+                onChange={handleChange("fecha_inicio")}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-              <Grid container spacing={2}>
-                {/* Selector de materia */}
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Materia del Caso</InputLabel>
-                    <Select
-                      value={form.materia}
-                      label="Materia del Caso"
-                      onChange={handleChange("materia")}
-                    >
-                      <MenuItem value="">
-                        <em>Sin materia</em>
-                      </MenuItem>
-                      {MATERIAS_CASO.map(materia => {
-                        const colorInfo = getMateriaColor(materia);
-                        return (
-                          <MenuItem key={materia} value={materia}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Box sx={{ 
-                                width: 12, height: 12, borderRadius: '50%', 
-                                backgroundColor: colorInfo.color 
-                              }} />
-                              {materia}
-                            </Box>
-                          </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                {/* Indicador de juzgados disponibles */}
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                    {form.materia ? (
-                      <Chip
-                        icon={<Gavel />}
-                        label={`${juzgadosFiltrados.length} juzgados disponibles para ${form.materia}`}
-                        color={juzgadosFiltrados.length > 0 ? "primary" : "warning"}
-                        variant="outlined"
-                      />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        Selecciona una materia para ver juzgados filtrados
-                      </Typography>
-                    )}
-                  </Box>
-                </Grid>
-
-                {/* Selector de juzgado (Autocomplete) */}
-                <Grid item xs={12}>
-                  <Autocomplete
-                    options={juzgadosFiltrados}
-                    value={juzgadoSeleccionado}
-                    onChange={handleJuzgadoSelect}
-                    loading={juzgadosLoading}
-                    getOptionLabel={(option) => option.nombre || ""}
-                    isOptionEqualToValue={(option, value) => option.nombre === value.nombre}
-                    noOptionsText={
-                      form.materia 
-                        ? "No hay juzgados para esta materia" 
-                        : "Selecciona una materia primero"
-                    }
-                    renderOption={(props, option) => {
-                      const colorInfo = getMateriaColor(option.materia);
-                      return (
-                        <li {...props} key={`${option.id}-${option.nombre}`}>
-                          <Box sx={{ width: '100%', py: 0.5 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Gavel sx={{ fontSize: 16, color: colorInfo.color }} />
-                              <Typography variant="body2" fontWeight="bold">
-                                {option.nombre}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 3, mt: 0.5 }}>
-                              <LocationOn sx={{ fontSize: 14, color: 'text.secondary' }} />
-                              <Typography variant="caption" color="text.secondary">
-                                {option.ubicacion || "Sin ubicación"}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ ml: 3, mt: 0.5 }}>
-                              <Chip
-                                label={colorInfo.label}
-                                size="small"
-                                sx={{
-                                  backgroundColor: colorInfo.bg,
-                                  color: colorInfo.color,
-                                  fontSize: '0.65rem',
-                                  height: 20
-                                }}
-                              />
-                              <Chip
-                                label={option.lugar}
-                                size="small"
-                                variant="outlined"
-                                sx={{ ml: 0.5, fontSize: '0.65rem', height: 20 }}
-                              />
-                            </Box>
-                          </Box>
-                        </li>
-                      );
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Juzgado asignado"
-                        placeholder={form.materia ? "Buscar juzgado..." : "Primero selecciona una materia"}
-                        size="small"
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <>
-                              <Gavel sx={{ fontSize: 20, color: 'action.active', mr: 1 }} />
-                              {params.InputProps.startAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </Grid>
-
-                {/* Mostrar juzgado seleccionado */}
-                {juzgadoSeleccionado && (
-                  <Grid item xs={12}>
-                    <Paper variant="outlined" sx={{ p: 2, backgroundColor: '#f8f9fa' }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="primary.main">
-                        <Gavel sx={{ fontSize: 16, mr: 1, verticalAlign: 'middle' }} />
-                        Juzgado seleccionado:
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        <strong>{juzgadoSeleccionado.nombre}</strong>
-                      </Typography>
-                      {juzgadoSeleccionado.ubicacion && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          <LocationOn sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
-                          {juzgadoSeleccionado.ubicacion}
-                        </Typography>
-                      )}
-                    </Paper>
-                  </Grid>
-                )}
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Botones de acción */}
-        <Grid item xs={12}>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={() => navigate(-1)}
-              sx={{ textTransform: 'none' }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={<Save />}
-              disabled={loading}
-              sx={{ textTransform: 'none', fontWeight: 600 }}
-            >
-              {loading ? (
-                <CircularProgress size={24} />
-              ) : (
-                isEditing ? "Guardar Cambios" : "Crear Caso"
-              )}
-            </Button>
+      {/* ── Sección 2: Materia y Juzgado ────────────────── */}
+      <Card sx={{ borderRadius: 2, boxShadow: 2, mb: 3 }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Gavel sx={{ color: "primary.main" }} />
+            <Typography variant="subtitle1" fontWeight="bold">
+              Materia y Juzgado
+            </Typography>
           </Box>
-        </Grid>
-      </Grid>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Selecciona primero la materia para filtrar los juzgados disponibles.
+          </Typography>
+
+          <Grid container spacing={2}>
+            {/* Materia */}
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Materia del Caso</InputLabel>
+                <Select
+                  value={form.materia}
+                  label="Materia del Caso"
+                  onChange={handleChange("materia")}
+                >
+                  <MenuItem value="">
+                    <em>Sin materia</em>
+                  </MenuItem>
+                  {MATERIAS_CASO.map(materia => {
+                    const c = getMateriaColor(materia);
+                    return (
+                      <MenuItem key={materia} value={materia}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                          <Box
+                            sx={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              backgroundColor: c.color,
+                              flexShrink: 0
+                            }}
+                          />
+                          <Typography variant="body2">{materia}</Typography>
+                        </Box>
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Badge de juzgados disponibles */}
+            <Grid item xs={12} sm={6}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  height: "100%",
+                  minHeight: 56
+                }}
+              >
+                {form.materia ? (
+                  <Chip
+                    icon={<AccountBalance />}
+                    label={`${juzgadosFiltrados.length} juzgados en ${form.materia}`}
+                    color={juzgadosFiltrados.length > 0 ? "primary" : "warning"}
+                    variant="outlined"
+                    sx={{ fontWeight: 500 }}
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.disabled">
+                    Selecciona una materia para ver juzgados
+                  </Typography>
+                )}
+              </Box>
+            </Grid>
+
+            {/* Autocomplete de juzgados */}
+            <Grid item xs={12}>
+              <Autocomplete
+                options={juzgadosFiltrados}
+                value={juzgadoSeleccionado}
+                onChange={handleJuzgadoSelect}
+                loading={juzgadosLoading}
+                getOptionLabel={(option) => option.nombre || ""}
+                isOptionEqualToValue={(option, value) => option.nombre === value.nombre}
+                filterOptions={(options, { inputValue }) => {
+                  if (!inputValue) return options;
+                  const terms = inputValue.toLowerCase().split(/\s+/).filter(Boolean);
+                  return options.filter(opt => {
+                    const text = `${opt.nombre} ${opt.lugar} ${opt.edificio} ${opt.calle}`.toLowerCase();
+                    return terms.every(t => text.includes(t));
+                  });
+                }}
+                noOptionsText={
+                  form.materia
+                    ? "No se encontraron juzgados"
+                    : "Selecciona una materia primero"
+                }
+                ListboxProps={{
+                  sx: { maxHeight: 320, "& .MuiAutocomplete-option": { px: 2, py: 1.5 } }
+                }}
+                renderOption={(props, option) => {
+                  const c = getMateriaColor(option.materia);
+                  return (
+                    <li {...props} key={`${option.id}-${option.nombre}`}>
+                      <Box sx={{ width: "100%" }}>
+                        {/* Row 1: name */}
+                        <Typography variant="body2" fontWeight={600} noWrap>
+                          {option.nombre}
+                        </Typography>
+
+                        {/* Row 2: location */}
+                        {option.ubicacion && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                              mt: 0.5
+                            }}
+                          >
+                            <LocationOn sx={{ fontSize: 14, color: "text.secondary" }} />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              noWrap
+                              sx={{ maxWidth: "90%" }}
+                            >
+                              {option.ubicacion}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Row 3: chips */}
+                        <Box sx={{ display: "flex", gap: 0.5, mt: 0.5, flexWrap: "wrap" }}>
+                          <Chip
+                            label={c.label}
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: "0.68rem",
+                              fontWeight: 600,
+                              backgroundColor: c.bg,
+                              color: c.color
+                            }}
+                          />
+                          {option.lugar && (
+                            <Chip
+                              label={option.lugar}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: 20, fontSize: "0.68rem" }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Buscar y seleccionar juzgado"
+                    placeholder={
+                      form.materia
+                        ? "Escribe para buscar por nombre, lugar o edificio..."
+                        : "Primero selecciona una materia"
+                    }
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search sx={{ color: "action.active" }} />
+                        </InputAdornment>
+                      )
+                    }}
+                    helperText={
+                      form.materia
+                        ? `Puedes buscar entre ${juzgadosFiltrados.length} juzgados de ${form.materia}`
+                        : undefined
+                    }
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Juzgado seleccionado — card de confirmación */}
+            {juzgadoSeleccionado && (
+              <Grid item xs={12}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderColor: "primary.main",
+                    borderWidth: 2,
+                    backgroundColor: "primary.50",
+                    borderRadius: 2
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <AccountBalance sx={{ color: "primary.main", fontSize: 20 }} />
+                    <Typography variant="subtitle2" fontWeight="bold" color="primary.main">
+                      Juzgado seleccionado
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1" fontWeight={600} sx={{ ml: 3.5 }}>
+                    {juzgadoSeleccionado.nombre}
+                  </Typography>
+                  {juzgadoSeleccionado.ubicacion && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 3.5, mt: 0.5 }}>
+                      <LocationOn sx={{ fontSize: 16, color: "text.secondary" }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {juzgadoSeleccionado.ubicacion}
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+            )}
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* ── Botones de acción ───────────────────────────── */}
+      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+        <Button
+          variant="outlined"
+          onClick={() => navigate(-1)}
+          sx={{ textTransform: "none", minWidth: 120 }}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
+          disabled={loading}
+          sx={{ textTransform: "none", fontWeight: 600, minWidth: 160 }}
+        >
+          {isEditing ? "Guardar Cambios" : "Crear Caso"}
+        </Button>
+      </Box>
     </Box>
   );
 }
