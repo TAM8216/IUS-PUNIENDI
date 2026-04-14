@@ -16,7 +16,9 @@ const ListaCasos = async (req, res, next) => {
         c.tipo_caso, 
         c.asunto, 
         c.estado,
-        c.seguimiento, -- ✅ nuevo campo
+        c.seguimiento,
+        c.juzgado_nombre,
+        c.juzgado_ubicacion,
         CONCAT(cl.nombre, ' ', cl.apellido_paterno, ' ', cl.apellido_materno) AS cliente,
         c.clientes_id,
         c.responsable_id,
@@ -55,7 +57,9 @@ const Caso = async (req, res, next) => {
         c.tipo_caso, 
         c.asunto, 
         c.estado, 
-        c.seguimiento, -- ✅ nuevo campo
+        c.seguimiento,
+        c.juzgado_nombre,
+        c.juzgado_ubicacion,
         cl.nombre AS cliente,
         c.fecha_ingreso,
         c.fecha_inicio,
@@ -98,7 +102,9 @@ const CrearCaso = async (req, res, next) => {
       clientes_id, 
       estado, 
       responsable_id,
-      seguimiento // ✅ nuevo campo
+      seguimiento,
+      juzgado_nombre,
+      juzgado_ubicacion
     } = req.body;
 
     if (!delito || !tipo_caso || !asunto) {
@@ -110,8 +116,9 @@ const CrearCaso = async (req, res, next) => {
         nurej_cud, delito, tipo_caso, asunto, 
         fecha_ingreso, fecha_inicio, materia, 
         creado_por, clientes_id, 
-        estado, responsable_id, seguimiento
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        estado, responsable_id, seguimiento,
+        juzgado_nombre, juzgado_ubicacion
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *`,
       [
         nurej_cud || null, 
@@ -125,7 +132,9 @@ const CrearCaso = async (req, res, next) => {
         clientes_id || null, 
         estado || 'activo', 
         responsable_id || null,
-        seguimiento || 'NT-1' // ✅ nuevo campo
+        seguimiento || 'NT-1',
+        juzgado_nombre || null,
+        juzgado_ubicacion || null
       ]
     );
 
@@ -285,7 +294,9 @@ const EditarCaso = async (req, res, next) => {
       creado_por, 
       clientes_id, 
       estado, 
-      responsable_id
+      responsable_id,
+      juzgado_nombre,
+      juzgado_ubicacion
     } = req.body;
 
     if (!delito || !tipo_caso || !asunto) {
@@ -305,8 +316,10 @@ const EditarCaso = async (req, res, next) => {
         creado_por = $8,
         clientes_id = $9, 
         estado = $10,
-        responsable_id = $11
-       WHERE id = $12
+        responsable_id = $11,
+        juzgado_nombre = $12,
+        juzgado_ubicacion = $13
+       WHERE id = $14
        RETURNING *`,
       [
         nurej_cud || null,
@@ -320,6 +333,8 @@ const EditarCaso = async (req, res, next) => {
         clientes_id || null,
         estado || 'activo',
         responsable_id || null,
+        juzgado_nombre || null,
+        juzgado_ubicacion || null,
         id
       ]
     );
