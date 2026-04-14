@@ -38,6 +38,7 @@ import jurisprudenciaRoutes from "./routes/jurisprudencia.routes.js"; // ← NUE
 import tareasRoutes from "./routes/tareas.routes.js";
 import accionesRoutes from "./routes/acciones.routes.js";
 import notificacionesRoutes from './routes/notificaciones.routes.js';
+import juzgadosRoutes from "./routes/juzgados.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 
 // Carpeta pública para documentos
@@ -337,6 +338,7 @@ app.use("/api/jurisprudencia", jurisprudenciaRoutes); // ← NUEVA RUTA (singula
 app.use("/api/tareas", tareasRoutes);
 app.use("/api/acciones", accionesRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
+app.use('/api/juzgados', juzgadosRoutes);
 
 // Manejo de errores
 app.use((error, req, res, next) => {
