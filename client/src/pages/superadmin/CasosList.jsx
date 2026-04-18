@@ -10,7 +10,7 @@ import {
   Visibility, Edit, Delete, Search, Clear, Add, Refresh,
   Gavel, LocationOn, Warning, AccountBalance
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../api";
 
 // Función para escapar caracteres especiales
@@ -83,6 +83,14 @@ export default function CasosList() {
   const [rowsPerPage, setRowsPerPage] = useState(15);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, caso: null });
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Detectar el prefijo de ruta según el rol del usuario (ej: /superadmin, /abogado, /admin)
+  const routePrefix = useMemo(() => {
+    const parts = location.pathname.split('/');
+    // El primer segmento después de / es el prefijo de rol
+    return parts.length > 1 ? `/${parts[1]}` : '/superadmin';
+  }, [location.pathname]);
 
   // Debounce
   useEffect(() => {
@@ -138,9 +146,9 @@ export default function CasosList() {
     return { total, activos, conJuzgado, sinJuzgado };
   }, [casos]);
 
-  const handleVer = (id) => navigate(`/superadmin/casos/${id}`);
-  const handleEditar = (id) => navigate(`/superadmin/casos/editar/${id}`);
-  const handleNuevo = () => navigate("/superadmin/casos/nuevo");
+  const handleVer = (id) => navigate(`${routePrefix}/casos/${id}`);
+  const handleEditar = (id) => navigate(`${routePrefix}/casos/editar/${id}`);
+  const handleNuevo = () => navigate(`${routePrefix}/casos/nuevo`);
 
   const handleEliminarClick = (caso) => {
     setDeleteDialog({ open: true, caso });
