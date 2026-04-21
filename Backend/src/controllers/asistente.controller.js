@@ -3,14 +3,18 @@ const pool = require("../db");
 const fs = require("fs");
 const path = require("path");
 
-// ── Lazy-load ESM modules ──────────────────────────────────
-let _OpenAI = null;
-async function getOpenAI() {
-  if (!_OpenAI) {
-    const mod = await import("openai");
-    _OpenAI = mod.default || mod.OpenAI;
+// ── Lazy-load modules ──────────────────────────────────────
+let _geminiModel = null;
+async function getGeminiModel() {
+  if (!_geminiModel) {
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    _geminiModel = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+      systemInstruction: SYSTEM_PROMPT
+    });
   }
-  return new _OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _geminiModel;
 }
 
 let _pdfParse = null;
@@ -127,21 +131,30 @@ async function extraerTextoArchivoSubido(file) {
   throw new Error('Tipo de archivo no soportado. Solo se aceptan PDF, DOCX y TXT.');
 }
 
-// Llamar a la API de OpenAI
+// Llamar a la API de Google Gemini
 async function llamarIA(messages) {
-  const openai = await getOpenAI();
+  const model = await getGeminiModel();
 
-  const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...messages
-    ],
-    max_tokens: 4096,
-    temperature: 0.3,
+  // Construir historial para Gemini
+  const history = [];
+  for (const msg of messages.slice(0, -1)) {
+    history.push({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    });
+  }
+
+  const chat = model.startChat({
+    history,
+    generationConfig: {
+      maxOutputTokens: 4096,
+      temperature: 0.3,
+    }
   });
 
-  return completion.choices[0].message.content;
+  const lastMessage = messages[messages.length - 1].content;
+  const result = await chat.sendMessage(lastMessage);
+  return result.response.text();
 }
 
 // Obtener datos completos de un caso con sus documentos
