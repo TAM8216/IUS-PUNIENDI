@@ -135,17 +135,42 @@ async function extraerTextoArchivoSubido(file) {
 async function llamarIA(messages) {
   const model = await getGeminiModel();
 
-  // Construir historial para Gemini
+  // Construir historial para Gemini — debe empezar con rol 'user'
   const history = [];
   for (const msg of messages.slice(0, -1)) {
+    const role = msg.role === 'user' ? 'user' : 'model';
     history.push({
-      role: msg.role === 'user' ? 'user' : 'model',
+      role,
       parts: [{ text: msg.content }]
     });
   }
 
+  // Gemini requiere que el historial empiece con 'user'.
+  // Si el primer mensaje es 'model' (ej: saludo del asistente), lo eliminamos.
+  while (history.length > 0 && history[0].role !== 'user') {
+    history.shift();
+  }
+
+  // Asegurar que los roles se alternen (user/model/user/model)
+  const validHistory = [];
+  for (let i = 0; i < history.length; i++) {
+    const entry = history[i];
+    if (validHistory.length === 0) {
+      if (entry.role === 'user') validHistory.push(entry);
+    } else {
+      const lastRole = validHistory[validHistory.length - 1].role;
+      if (entry.role !== lastRole) {
+        validHistory.push(entry);
+      }
+      // Si el rol se repite, concatenar el texto al mensaje anterior
+      else {
+        validHistory[validHistory.length - 1].parts[0].text += '\n' + entry.parts[0].text;
+      }
+    }
+  }
+
   const chat = model.startChat({
-    history,
+    history: validHistory,
     generationConfig: {
       maxOutputTokens: 4096,
       temperature: 0.3,
