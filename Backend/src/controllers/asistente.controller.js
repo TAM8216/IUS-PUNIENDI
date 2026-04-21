@@ -4,17 +4,13 @@ const fs = require("fs");
 const path = require("path");
 
 // ── Lazy-load modules ──────────────────────────────────────
-let _geminiModel = null;
-async function getGeminiModel() {
-  if (!_geminiModel) {
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    _geminiModel = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
-      systemInstruction: SYSTEM_PROMPT
-    });
+let _groqClient = null;
+function getGroqClient() {
+  if (!_groqClient) {
+    const Groq = require("groq-sdk");
+    _groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
   }
-  return _geminiModel;
+  return _groqClient;
 }
 
 let _pdfParse = null;
@@ -131,55 +127,27 @@ async function extraerTextoArchivoSubido(file) {
   throw new Error('Tipo de archivo no soportado. Solo se aceptan PDF, DOCX y TXT.');
 }
 
-// Llamar a la API de Google Gemini
+// Llamar a la API de Groq (Llama 3.3)
 async function llamarIA(messages) {
-  const model = await getGeminiModel();
+  const groq = getGroqClient();
 
-  // Construir historial para Gemini — debe empezar con rol 'user'
-  const history = [];
-  for (const msg of messages.slice(0, -1)) {
-    const role = msg.role === 'user' ? 'user' : 'model';
-    history.push({
-      role,
-      parts: [{ text: msg.content }]
-    });
-  }
+  // Filtrar mensajes del asistente que son internos (saludos del frontend)
+  const cleanMessages = messages.filter(m => m.content && m.content.trim());
 
-  // Gemini requiere que el historial empiece con 'user'.
-  // Si el primer mensaje es 'model' (ej: saludo del asistente), lo eliminamos.
-  while (history.length > 0 && history[0].role !== 'user') {
-    history.shift();
-  }
-
-  // Asegurar que los roles se alternen (user/model/user/model)
-  const validHistory = [];
-  for (let i = 0; i < history.length; i++) {
-    const entry = history[i];
-    if (validHistory.length === 0) {
-      if (entry.role === 'user') validHistory.push(entry);
-    } else {
-      const lastRole = validHistory[validHistory.length - 1].role;
-      if (entry.role !== lastRole) {
-        validHistory.push(entry);
-      }
-      // Si el rol se repite, concatenar el texto al mensaje anterior
-      else {
-        validHistory[validHistory.length - 1].parts[0].text += '\n' + entry.parts[0].text;
-      }
-    }
-  }
-
-  const chat = model.startChat({
-    history: validHistory,
-    generationConfig: {
-      maxOutputTokens: 4096,
-      temperature: 0.3,
-    }
+  const completion = await groq.chat.completions.create({
+    model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...cleanMessages.map(m => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.content
+      }))
+    ],
+    max_tokens: 4096,
+    temperature: 0.3,
   });
 
-  const lastMessage = messages[messages.length - 1].content;
-  const result = await chat.sendMessage(lastMessage);
-  return result.response.text();
+  return completion.choices[0].message.content;
 }
 
 // Obtener datos completos de un caso con sus documentos
